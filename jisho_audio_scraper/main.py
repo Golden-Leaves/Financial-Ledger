@@ -9,6 +9,6 @@ from selenium.common.exceptions import NoSuchElementException,ElementClickInterc
 
 def main():
     jisho_audio_downloader = JishoAudioDownloader(hiragana_words)
-   
+    jisho_audio_downloader.download_audio()
 if __name__ == "__main__":
     main()
