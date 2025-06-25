@@ -43,7 +43,7 @@ class MALWebScraper:
         print(genre_data)
     def fetch_anime_data(self):
         SAVE_PATH = os.path.join("data","animes.csv")
-        columns = ["title_romaji", "title_english", "score", "rank", "popularity_rank", "members", "season", "type", "studio","genres"]
+        columns = ["title_romaji", "title_english", "score", "rank", "popularity_rank", "members", "season", "type", "studio","genres","themes"]
         if not os.path.exists(SAVE_PATH):
             df = pd.DataFrame(columns=columns)
             df.to_csv(SAVE_PATH, index=False)
@@ -88,12 +88,29 @@ class MALWebScraper:
             anime_studio = soup.select_one("span.information.studio.author > a")
             anime_studio = anime_studio.text if anime_studio else np.nan
             
-            anime_genres = soup.select("span[itemprop=genre]")
-            anime_genres = ",".join([anime_genre.text for anime_genre in anime_genres if anime_genres])
+            
+            anime_genres = []
+            anime_themes = []
+            
+            if soup.select("a[href*='/anime/genre/']") :
+                anime_genres_themes = soup.select("a[href*='/anime/genre/']") 
+                for genre in anime_genres_themes: #The IDs serve a purpose lol
+                    href = genre.get("href", "").split("/")
+                    genre_id = int(href[3])
+                    if 1 <= genre_id <= 49:
+                        anime_genres.append(href[4])
+                    elif 50 <= genre_id <= 99:
+                        anime_themes.append(href[4])
+                    else:
+                        continue
+            
+            anime_genres = ",".join([anime_genre for anime_genre in anime_genres if anime_genres])
+            anime_themes = ",".join([anime_theme for anime_theme in anime_themes if anime_themes])
+            
             anime_data = [anime_name,anime_english_name,anime_score,anime_rank,anime_popularity_rank,anime_members,
                           anime_season,
                           anime_type,                         
-                          anime_studio,anime_genres] 
+                          anime_studio,anime_genres,anime_themes] 
             
             anime_df = pd.DataFrame([anime_data],columns=columns) #Pandas Shenanigans: https://stackoverflow.com/questions/17839973/constructing-dataframe-from-values-in-variables-yields-valueerror-if-using-all
             anime_df.to_csv(SAVE_PATH,index=False,mode="a",header=None)
