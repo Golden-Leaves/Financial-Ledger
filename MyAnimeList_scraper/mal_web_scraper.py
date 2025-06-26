@@ -10,6 +10,10 @@ from selenium.webdriver.common.action_chains import ActionChains
 import pandas as pd
 import numpy as np
 import os
+import time
+from sqlalchemy import create_engine, Column, Integer, String, Float
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 class MALWebScraper:
     def __init__(self):
         self.headers = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
@@ -49,71 +53,80 @@ class MALWebScraper:
             df.to_csv(SAVE_PATH, index=False)
             
         anime_data = {}
-        MAX_ID = 10
-        consecutive_404s = 0
-        STOP_AFTER_CONSECUTIVE_404 = 50 #MAL IDs are weird, a lot of them are 404s while some work
-        for i in range(1,MAX_ID+1):
-            print(i)
-            if consecutive_404s == STOP_AFTER_CONSECUTIVE_404:
+        MAX_LIMT = 50 #Testing limiter :)
+       
+        limit = 0
+        while True:
+            anime_list = requests.get(f"https://myanimelist.net/topanime.php?limit={limit}")
+            if anime_list.status_code == 404:
                 break
-            
-            anime_page = requests.get(f"https://myanimelist.net/anime/{i}")
-            if anime_page.status_code == 404:
-                consecutive_404s += 1
-                continue
-            print(anime_page.status_code)
-            soup = BeautifulSoup(anime_page.text,"html.parser")
-            anime_name = soup.select_one("h1.title-name.h1_bold_none").text
-            #Some animes have this some don't
-            anime_english_name = soup.select_one("p.title-english.title-inherit")
-            anime_english_name = anime_english_name.text if anime_english_name else np.nan
-            
-            anime_score = soup.select_one("div[class~=score-label]")
-            anime_score = float(anime_score.text) if anime_score != "N/A" else np.nan
-            
-            anime_rank = soup.select_one("span.numbers.ranked > strong")
-            anime_rank = int(anime_rank.text.strip("#")) if anime_rank != "N/A" else np.nan
-            
-            anime_popularity_rank = soup.select_one("span.numbers.popularity > strong")
-            anime_popularity_rank = float(anime_popularity_rank.text.strip("#")) if anime_popularity_rank != "N/A" else np.nan
-                
-                
-            anime_members = int(soup.select_one("span.numbers.members > strong").text.replace(",","")) #Number of people who have it on their anime list
-            
-            anime_season = soup.select_one("span.information.season > a")
-            anime_season = anime_season.text if anime_season else np.nan
-            
-            anime_type = soup.select_one("span.information.type > a").text
-            
-            anime_studio = soup.select_one("span.information.studio.author > a")
-            anime_studio = anime_studio.text if anime_studio else np.nan
-            
-            
-            anime_genres = []
-            anime_themes = []
-            
-            if soup.select("a[href*='/anime/genre/']") :
-                anime_genres_themes = soup.select("a[href*='/anime/genre/']") 
-                for genre in anime_genres_themes: #The IDs serve a purpose lol
-                    href = genre.get("href", "").split("/")
-                    genre_id = int(href[3])
-                    if 1 <= genre_id <= 49:
-                        anime_genres.append(href[4])
-                    elif 50 <= genre_id <= 99:
-                        anime_themes.append(href[4])
-                    else:
-                        continue
-            
-            anime_genres = ",".join([anime_genre for anime_genre in anime_genres if anime_genres])
-            anime_themes = ",".join([anime_theme for anime_theme in anime_themes if anime_themes])
-            
-            anime_data = [anime_name,anime_english_name,anime_score,anime_rank,anime_popularity_rank,anime_members,
-                          anime_season,
-                          anime_type,                         
-                          anime_studio,anime_genres,anime_themes] 
-            
-            anime_df = pd.DataFrame([anime_data],columns=columns) #Pandas Shenanigans: https://stackoverflow.com/questions/17839973/constructing-dataframe-from-values-in-variables-yields-valueerror-if-using-all
-            anime_df.to_csv(SAVE_PATH,index=False,mode="a",header=None)
+            print(anime_list.status_code)
+
+            soup = BeautifulSoup(anime_list.text,"html.parser")
+            anime_links = soup.select("td.title.al.va-t.word-break > a[href*='anime']")
+            for anime in anime_links:
+                time.sleep(1) #MAL will block you if you spam requests
+                anime_url = anime.get("href")
+                print(anime_url)
+                anime_page = requests.get(anime_url,headers=self.headers)
+                if anime_page.status_code != 200:
+                    print(f"[⛔] Failed to fetch {anime_url}")
+                    continue
+                soup = BeautifulSoup(anime_page.text, "html.parser")
+
+                anime_name = soup.select_one("h1.title-name.h1_bold_none > strong").text
+
+                anime_english_name = soup.select_one("p.title-english.title-inherit")
+                anime_english_name = anime_english_name.text if anime_english_name else np.nan
+
+                anime_score = soup.select_one("div[class~=score-label]")
+                anime_score = float(anime_score.text) if anime_score != "N/A" else np.nan
+
+                anime_rank = soup.select_one("span.numbers.ranked > strong")
+                anime_rank = int(anime_rank.text.strip("#")) if anime_rank != "N/A" else np.nan
+
+                anime_popularity_rank = soup.select_one("span.numbers.popularity > strong")
+                anime_popularity_rank = float(anime_popularity_rank.text.strip("#")) if anime_popularity_rank != "N/A" else np.nan
+
+                anime_members = int(soup.select_one("span.numbers.members > strong").text.replace(",", ""))
+
+                anime_season = soup.select_one("span.information.season > a")
+                anime_season = anime_season.text if anime_season else np.nan
+
+                anime_type = soup.select_one("span.information.type > a").text
+
+                anime_studio = soup.select_one("span.information.studio.author > a")
+                anime_studio = anime_studio.text if anime_studio else np.nan
+
+                anime_genres = []
+                anime_themes = []
+
+                if soup.select("a[href*='/anime/genre/']"):
+                    anime_genres_themes = soup.select("a[href*='/anime/genre/']")
+                    for genre in anime_genres_themes:
+                        href = genre.get("href", "").split("/")
+                        genre_id = int(href[3])
+                        if 1 <= genre_id <= 49:
+                            anime_genres.append(href[4])
+                        elif 50 <= genre_id <= 99:
+                            anime_themes.append(href[4])
+                        else:
+                            continue
+
+                anime_genres = ",".join([anime_genre for anime_genre in anime_genres if anime_genres])
+                anime_themes = ",".join([anime_theme for anime_theme in anime_themes if anime_themes])
+
+                anime_data = [anime_name, anime_english_name, anime_score, anime_rank, anime_popularity_rank, anime_members,
+                              anime_season,
+                              anime_type,
+                              anime_studio, anime_genres, anime_themes]
+
+                anime_df = pd.DataFrame([anime_data], columns=columns)
+                anime_df.drop_duplicates(subset=["title_romaji"],inplace=True)
+                anime_df.to_csv(SAVE_PATH, index=False, mode="a", header=None)
+            if limit == MAX_LIMT:
+                break
+            limit += 50
         print("Finished fetching animes.")
         
         
