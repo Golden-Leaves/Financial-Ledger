@@ -11,14 +11,25 @@ import pandas as pd
 import numpy as np
 import os
 import time
-from sqlalchemy import create_engine, Column, Integer, String, Float
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import ForeignKey,Integer, String, Text,ForeignKey
+from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import Mapped
+from sqlalchemy.orm import mapped_column
+from sqlalchemy.orm import relationship
+from typing import Optional
+class Base(DeclarativeBase):
+    pass
+
+class Anime(Base):
+    __tablename__ = "animes"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title_romaji: Mapped[str] = mapped_column(String(200))
+    title_english: Mapped
 class MALWebScraper:
     def __init__(self):
-        self.headers = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+        self.headers = {"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"}
         self.anime_links = []
-
+        
         
         os.makedirs("data", exist_ok=True) #Creates data folder if it doesnt already exists
 
