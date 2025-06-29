@@ -6,24 +6,25 @@ class OsuOverlay():
         self.map_file = map_file
         self.sections = self.map_file.split("\n\n")
         self.mods = {"DT":False,"HR":True,"HD":False,"FL":True} #Sample data for now
-        self.get_map_data()
-        print(self.CS,self.preempt)
+        self.get_map_data(self.sections)
     def initialize_script(self):
-        self.master = Tk()
-        self.master.bind("q", lambda e: (self.master.destroy(), print("Window Destroyed")))
-        self.master.geometry(f"{self.master.winfo_screenwidth()}x{self.master.winfo_screenheight()}")
-        self.master.overrideredirect(1)
-        self.master.attributes('-topmost', True)
-        self.master.config(bg='white')
-        self.master.wm_attributes('-transparentcolor', 'white')
-        self.canvas = Canvas(self.master, highlightthickness=0,width=self.master.winfo_screenwidth(),height = self.master.winfo_screenheight())
-        self.canvas.create_text(960, 620, text="Overlay Online", font=("Segoe UI", 20), fill="black")  # This will also show
-        self.canvas.pack(fill=BOTH, expand=True)
-        self.master.update() #Update it NOW, you dont need to wait for mainloop
+        root = Tk()
+        root.geometry("1920x1080")
+        root.config(bg='#add123')
+        root.wm_attributes('-transparentcolor', '#add123')
+        root.attributes("-fullscreen", True)
+        root.wm_attributes("-topmost", 1)
+        bg = Canvas(root, width=1920, height=1080)
+        # label = Label(root, text="👁️‍🗨️ CLICK-THROUGH TESTING ZONE", 
+        #                 font=("Segoe UI", 30), fg="red", bg="white")
+        # label.place(x=300, y=500)
         #Make the window click-throughable and transparent babysssssss
-        self.setClickthrough(self.canvas.winfo_id()) #It needs the handle, not the window itself...
-        self.master.mainloop()
-
+        self.setClickthrough(bg.winfo_id())
+        
+        self.load_circles_info(self.timing_info)
+        root.mainloop()
+    
+        
     def setClickthrough(self,hwnd):
         print("setting window properties")
         try:
@@ -31,17 +32,21 @@ class OsuOverlay():
             styles = win32con.WS_EX_LAYERED | win32con.WS_EX_TRANSPARENT
             win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, styles)
             win32gui.SetLayeredWindowAttributes(hwnd, 0, 255, win32con.LWA_ALPHA)
-
         except Exception as e:
             print(e)
 
-    def get_map_data(self) -> None:
+
+    def get_map_data(self,sections) -> None:
             try:
                 
-                for section in self.sections:
+                for section in sections:
                     if "[Difficulty]" in section:
                         self.difficulty_data = section
                         for line in self.difficulty_data.split("\n"):
+                            
+                            if "CircleSize" in line:
+                                self.CS = float(line.split(":")[1])
+                                
                             if "ApproachRate" in line:
                                 AR = float(line.split(":")[1])
                                 #AR time calculations: https://osu.ppy.sh/wiki/en/Beatmap/Approach_rate
@@ -53,8 +58,8 @@ class OsuOverlay():
                                     self.preempt = 1200 - 750 * (AR - 5) / 5
                                 else:#AR11 lol
                                     self.preempt = 300
-                            if "CircleSize" in line:
-                                self.CS = float(line.split(":")[1])
+                                
+                            
                         
                     elif "[HitObjects]" in section:
                         self.timing_info = section.split("\n")[1::] #Skips the header
@@ -65,27 +70,39 @@ class OsuOverlay():
             except Exception as e:
                 print(f"Exception: {e}")
     
-    def get_timing_info(self,section) -> tuple: #https://osu.ppy.sh/wiki/en/Client/File_formats/osu_%28file_format%29
-        def get_slider_info(slider_data) -> list:
-            return []
+    def get_timing_info(self,parts) -> tuple: #https://osu.ppy.sh/wiki/en/Client/File_formats/osu_%28file_format%29
+        def get_slider_info(slider_data) -> tuple:
+            points = slider_data.split("|")
+            slider_points = tuple(map(lambda point: point.split(":"),int,points))
+            return slider_points
         try:
-            for line in section:
-                    print(f"LINE: '{line}'")
-                    if not line.strip(): #Random new lines my beloved
-                        continue
-                    
-                    object_info = line.split(",")
-                    if len(object_info) > 6: #Slider or nah
-                        slider_info = get_slider_info(object_info)
-                    else:
-                        x = line[0]
-                        y = line[1]
-                        hit_time = line[2] #In ms since the map started
-            return (x,y,hit_time,slider_info)
+            
+                print(f"LINE: {parts}")
+               
+                
+
+                x = parts[0]
+                y = parts[1]
+                hit_time = parts[2]
+                if len(parts) > 6: #Slider or nah
+                    slider_info = get_slider_info(parts)
+                    object_type = "slider"
+                else:
+                    slider_info = None
+                    object_type = "circle"
+              
+                    slider_info = None
+                print(slider_info)
+                return (x,y,object_type,slider_info)
+        
         except Exception as e:
             print(f"Exception: {e}")
-    
-    def load_circle_info(self):
-        for line in self.timing_info:
-            parts = line.split(",")
-            self.load_circle_info = self.get_timing_info(parts)
+               
+
+    def load_circles_info(self,timing_info) -> list:
+        circles_info = []
+        for line in timing_info:
+            parts = line.split(",")[:len(line.split(",")) - 1]
+            circle_info = self.get_timing_info(parts)
+            circles_info.append(circle_info)
+        return circles_info

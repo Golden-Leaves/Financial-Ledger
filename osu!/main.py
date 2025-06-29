@@ -41,7 +41,7 @@ def main():
                     file_name = file.name
                     if file.name.endswith(".osu") and diff_name in file_name:
                         with open(file.path,"r",encoding="utf-8") as f:
-                            return f.read()
+                            return f.read().strip()
         
                 
         raw_map_name  = get_map_name().strip()

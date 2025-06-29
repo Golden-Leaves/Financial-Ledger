@@ -16,8 +16,7 @@ def setClickthrough(hwnd):
 TRANSPARENT_COLOR = "#add123"
 
 root = Tk()
-root.bind("q", lambda e: (root.destroy(), print("Window Destroyed")))
-root.geometry(f"{root.winfo_screenwidth()}x{root.winfo_screenheight()}")
+root.bind("q", lambda e: (root.destroy(), print("Window qscreenheight()}")))
 root.overrideredirect(1)
 root.config(bg=TRANSPARENT_COLOR)
 root.wm_attributes('-transparentcolor', TRANSPARENT_COLOR)
