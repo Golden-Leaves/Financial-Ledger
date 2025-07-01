@@ -1,12 +1,17 @@
 from tkinter import *
 import win32gui
 import win32con
+from pynput.mouse import Listener as MouseListener
 class OsuOverlay():
     def __init__(self,map_file):
         self.map_file = map_file
         self.scheduled_tasks  = []
         self.sections = self.map_file.split("\n\n")
         self.mods = {"DT":False,"HR":True,"HD":False,"FL":True} #Sample data for now
+        
+        self.start_time = 0
+        self.PLAYER_KEYBINDS = ["D","F"] #What keybind the player uses
+        self.hit_objects = {}
         self.get_map_data(self.sections)
     def initialize_script(self):
         self.root = Tk()
@@ -24,10 +29,13 @@ class OsuOverlay():
         self.bg.pack(fill=BOTH, expand=True)
         self.root.config(bg='black')
         self.setClickthrough(self.root.winfo_id())
-
+        self.mouse_listener = MouseListener(on_click=self.remove_circle)
+        self.mouse_listener.start()
         self.circles_info = self.load_circles_info(self.timing_info)
-        self.start_sequence()
+        self.root.after(self.start_time,self.start_sequence)
+        
         self.root.mainloop()
+        
         
     def setClickthrough(self,hwnd):
         print("setting window properties")
@@ -50,7 +58,7 @@ class OsuOverlay():
                             
                             if "CircleSize" in line:
                                 self.CS = float(line.split(":")[1])
-                                self.radius = 54.4 - 4.48 * self.CS #https://osu.ppy.sh/wiki/en/Beatmap/Circle_size
+                                self.radius = int(109 - 9 * self.CS) #https://osu.ppy.sh/wiki/en/Beatmap/Circle_size
                                 
                             if "ApproachRate" in line:
                                 AR = float(line.split(":")[1])
@@ -74,22 +82,35 @@ class OsuOverlay():
                                 
             except Exception as e:
                 print(f"Exception: {e}")
-    
+    def scale_to_resolution(self,x,y): #Osu coords are weird: https://osu.ppy.sh/wiki/en/Client/Playfield
+            # scale_x = self.root.winfo_width() /512
+            # scale_y = self.root.winfo_height() /384 + 8
+             #CS in osu!pixels https://osu.ppy.sh/community/forums/topics/311844?n=4
+            scale_factor = 1080 / 480
+            return int(x * scale_factor + 384), int(y*scale_factor + 126)
+        
     def get_timing_info(self,parts) -> tuple: #https://osu.ppy.sh/wiki/en/Client/File_formats/osu_%28file_format%29
         def get_slider_info(slider_data) -> tuple:
             points = slider_data.rsplit(",",1)[0].split(",",1)[0].split("|")
 
             slider_points = [tuple(map(int,point.split(":"))) for point in points[1::]]
             return slider_points
+        
         try:
             
                 print(f"LINE: {parts}")
                
-                
+               
                 
                 x = int(parts[0])
                 y = int(parts[1])
+                x,y = self.scale_to_resolution(x,y)
                 hit_time = int(parts[2])
+                object_type = int(parts[3])
+ 
+            
+                self.previous_object_hit_time = hit_time
+                
                 if parts[-1][0].isalpha(): #Slider or nah
                     slider_info = get_slider_info(parts[-1]) #Hitsounds need to get out 🗣️🔥🔥
                     object_type = "slider"
@@ -107,6 +128,7 @@ class OsuOverlay():
 
     def load_circles_info(self,timing_info) -> list:
         circles_info = []
+        self.found_first_hit_object = False
         for line in timing_info:
             print(line)
             parts = line.split(",",5)
@@ -114,17 +136,25 @@ class OsuOverlay():
             circles_info.append(circle_info)
         return circles_info
     
-    def start_sequence(self):
+    def start_sequence(self): #Creates a schedule for tkitner to run
         print("Start Script")
         for x,y,hit_time,object_type,slider_info in self.circles_info:
             #Since Python stores reference to stuff, once this loop is closed, it points to nothing, hence the need to store vars
             self.scheduled_tasks.append(self.root.after(hit_time,
                                         lambda x=x,y=y,object_type=object_type,slider_info=slider_info: self.draw_circle(x,y,object_type,slider_info)))
-    def remove_circle(self,hit_object_id):
+    def remove_circle(self,hit_object_id,*args):
         self.bg.delete(hit_object_id)
+        # if premature_click:
+        #     self.root.after_cancel(args[0])
         
     def draw_circle(self,x,y,object_type,slider_info):
         FILL_COLOR =  "red" if object_type == "circle" else "green"
         if object_type == "circle":
             circle_id = self.bg.create_oval(x-self.radius,y-self.radius,x+self.radius,y+self.radius,fill=FILL_COLOR)
-            self.scheduled_tasks.append(self.root.after(self.preempt,lambda circle_id=circle_id: self.remove_circle(circle_id)))
+            task_id = self.root.after(self.preempt,lambda circle_id=circle_id: self.remove_circle(circle_id))
+            self.hit_objects[circle_id] = {"x":x,"y":y,"task_id":task_id} #Used to track if the player clicks prematurely
+            
+            self.scheduled_tasks.append(task_id)
+        elif object_type =="slider":
+            pass
+            

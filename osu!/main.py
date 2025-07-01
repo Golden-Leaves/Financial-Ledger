@@ -35,11 +35,12 @@ def main():
                 print(f"Exception: {e}")
             
         def get_map_file(map_directory) -> str:
-            print(map_name,diff_name)
+
             with os.scandir(map_directory) as dir:
                 for file in dir:
                     file_name = file.name
-                    if file.name.endswith(".osu") and diff_name in file_name:
+                    if file.name.endswith(".osu") and diff_name.lower() in file_name.lower():
+                        print(map_name,diff_name)
                         with open(file.path,"r",encoding="utf-8") as f:
                             return f.read().strip()
         
