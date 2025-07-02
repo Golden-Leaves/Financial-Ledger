@@ -44,7 +44,7 @@ def main():
                         with open(file.path,"r",encoding="utf-8") as f:
                             return f.read().strip()
         
-                
+        retry_counter = 0
         raw_map_name  = get_map_name().strip()
         reversed_rmname = raw_map_name[::-1]
         # WHY THE FUCK IS THE ARTIST's NAMES IN SQUARE BRACKETS AAAAAAAAAAAAAqqqA, THATS WHY THIS LOOKS OVER-ENGINEERED
