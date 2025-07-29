@@ -70,12 +70,16 @@ class OsuOverlay():
                                 #AR time calculations: https://osu.ppy.sh/wiki/en/Beatmap/Approach_rate
                                 if AR < 5: #TODO: Implement fade in animation later(I love HD)
                                     self.preempt = int(1200 + 600 * (5 - AR) / 5)
+                                    self.fade_in = int(800 + 400 * (5 - AR) / 5)
                                 elif AR == 5:
-                                    self.preempt = 1200
+                                    self.preempt = 120
+                                    self.fade_in = 800
                                 elif AR > 5:
                                     self.preempt = int(1200 - 750 * (AR - 5) / 5)
+                                    self.fade_in = int(800 - 500 * (AR - 5) / 5)
                                 else:#AR11 lol
                                     self.preempt = 300
+                                    self.fade_in = 200
                             
                             if "AudioLeadIn" in line:
                                 self.start_time += int(line.split(":")[1])
@@ -157,12 +161,12 @@ class OsuOverlay():
     
     def start_sequence(self): #Creates a schedule for tkitner to run
         print("Start Script")
-        # self.start_time = self.circles_info[0][2]
+        self.start_time = self.circles_info[0][2]
         counter = 0
         for x,y,hit_time,object_type,slider_info in self.circles_info:
             #Since Python stores reference to stuff, once this loop is closed, it points to nothing, hence the need to store vars
             #Clamping for the first hit object(since the anchor point is based on the first hit object)
-            delay = max(0,hit_time + self.start_time)  #I legit do not know how i came up with this
+            delay = self.start_time  #I legit do not know how i came up with this
             if counter == 0:
                 delay = self.start_time
                 
@@ -179,12 +183,12 @@ class OsuOverlay():
         FILL_COLOR =  "red" if object_type == "circle" else "green"
         if object_type == "circle":
             circle_id = self.bg.create_oval(x-self.radius,y-self.radius,x+self.radius,y+self.radius,fill=FILL_COLOR)
-            task_id = self.root.after(self.preempt,lambda circle_id=circle_id: self.remove_circle(circle_id))
+            task_id = self.root.after(self.fade_in,lambda circle_id=circle_id: self.remove_circle(circle_id))
             self.hit_objects[circle_id] = {"x":x,"y":y,"task_id":task_id} #Used to track if the player clicks prematurely
             self.scheduled_tasks.append(task_id)
                 
         elif object_type =="slider":
             slider_start = self.bg.create_oval(x-self.radius,y-self.radius,x+self.radius,y+self.radius,fill=FILL_COLOR)
-            task_id = self.root.after(self.preempt,lambda circle_id=slider_start: self.remove_circle(circle_id)) #TODO:
+            task_id = self.root.after(self.fade_in,lambda circle_id=slider_start: self.remove_circle(circle_id)) #TODO:
             self.hit_objects[slider_start] = {"x":x,"y":y,"task_id":task_id} #Used to track if the player clicks prematurely
             
