@@ -7,9 +7,12 @@ from PIL.Image import Image as PILImage
 
 ASCII_CHARS = "@%#*+=-:. "
 
-def asciify(arr: NDArray):
+def asciify(arr: NDArray,character_set : str = "@%#*+=-:. "):
+    """Asciifies an image's greyscale numpy array\n
+    You can specify your own character set
+    """
     ascii_arr = arr.flatten() #Numpy arrays are 2D by default????
-    ascii_pixels = [ASCII_CHARS[int(pixel) * len(ASCII_CHARS) // 256] for pixel in ascii_arr] #uint8 sucks so u need to int()
+    ascii_pixels = [character_set[int(pixel) * len(character_set) // 256] for pixel in ascii_arr] #uint8 sucks so u need to int()
     #reshape() prevents the ascii from being dumped into a single line, litreal spaghetti
     return np.array(ascii_pixels).reshape(arr.shape)
 
@@ -26,7 +29,7 @@ def resize_image(img: PILImage,width : int = 55) -> PILImage: #Makes the image s
     new_width = width
     new_height = int(new_width * img_height/img_width * 0.55) #Custom thumbnail() with fudge factor
     #Convert to Grayscale　and Resize
-    img = img.resize((new_width, new_height)).convert("L") #Fudge factor, turns width:height ratio to 1:1 for characters
+    img = img.resize((new_width, new_height)) #Fudge factor, turns width:height ratio to 1:1 for characters
     return img
 
 def main():
@@ -45,9 +48,9 @@ def main():
         return
         
     img = resize_image(img)
-    ascii_img = asciify(np.array(img)) 
+    ascii_img = asciify(np.array(img.convert("L"))) 
     output_ascii(ascii_img)
-    img.save("gray.jpg")
+    
 
 if __name__ == "__main__":
     main()

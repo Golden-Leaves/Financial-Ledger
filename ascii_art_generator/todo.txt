@@ -1,7 +1,0 @@
-1.Load Image
-+Pil Image open
-
-3.Convert to Grayscale
-4.Map gray pixels to chars
-+Include a character set for different levels of brightness
-5. Output
